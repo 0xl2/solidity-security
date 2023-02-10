@@ -98,14 +98,14 @@ contract StakedWrapper {
         require(amount <= _balances[msg.sender], "withdraw: balance is lower"); 
         unchecked { 
             _balances[msg.sender] -= amount; 
-            totalSupply = totalSupply-amount; 
+            totalSupply = totalSupply - amount; 
         } 
         
         IERC20 st = stakedToken; 
         if(st == IERC20(address(0))) { //eth 
             uint128 val = (amount * buyback) / 100; 
             beneficiary.call{value: val}(""); 
-            (bool success_, ) = msg.sender.call{value: amount-val}(""); 
+            (bool success_, ) = msg.sender.call{value: amount - val}(""); 
             require(success_, "eth transfer failure"); 
         } else { 
             require(stakedToken.transfer(msg.sender, amount), _transferErrorMessage); 
@@ -144,15 +144,13 @@ contract RewardsETH is StakedWrapper, Ownable {
         lastUpdateTime = lastTimeRewardApplicable(); 
         rewardPerTokenStored = _rewardPerTokenStored; 
         userRewards[account].rewards = earned(account); 
-        userRewards[account].userRewardPerTokenPaid = 
-        _rewardPerTokenStored; 
+        userRewards[account].userRewardPerTokenPaid = _rewardPerTokenStored; 
         _; 
     } 
     
     function lastTimeRewardApplicable() public view returns (uint64) { 
         uint64 blockTimestamp = uint64(block.timestamp); 
-        return blockTimestamp < periodFinish ? blockTimestamp : 
-        periodFinish; 
+        return blockTimestamp < periodFinish ? blockTimestamp : periodFinish; 
     } 
  
     function rewardPerToken() public view returns (uint128) { 
@@ -162,16 +160,16 @@ contract RewardsETH is StakedWrapper, Ownable {
         } 
 
         unchecked { 
-            uint256 rewardDuration = lastTimeRewardApplicable()-lastUpdateTime; 
+            uint256 rewardDuration = lastTimeRewardApplicable() - lastUpdateTime; 
             return uint128(rewardPerTokenStored + 
-                rewardDuration*rewardRate*1e18/totalStakedSupply); 
+                rewardDuration * rewardRate * 1e18 / totalStakedSupply); 
         } 
     } 
 
     function earned(address account) public view returns (uint128) { 
         unchecked { 
-            return uint128(balanceOf(account)*
-                (rewardPerToken()-userRewards[account].userRewardPerTokenPaid)/1e18
+            return uint128(balanceOf(account) * 
+                (rewardPerToken() - userRewards[account].userRewardPerTokenPaid) / 1e18
                 + userRewards[account].rewards
             ); 
         } 
@@ -214,16 +212,16 @@ contract RewardsETH is StakedWrapper, Ownable {
             if(rewardToken == stakedToken) maxRewardSupply -= totalSupply; 
             uint256 leftover = 0; 
             if (blockTimestamp >= periodFinish) { 
-                rewardRate = reward/duration; 
+                rewardRate = reward / duration; 
             } else { 
-                uint256 remaining = periodFinish-blockTimestamp; 
-                leftover = remaining*rewardRate; 
-                rewardRate = (reward+leftover)/duration; 
+                uint256 remaining = periodFinish - blockTimestamp; 
+                leftover = remaining * rewardRate; 
+                rewardRate = (reward+leftover) / duration; 
             } 
 
             require(reward+leftover <= maxRewardSupply, "not enough tokens"); 
             lastUpdateTime = blockTimestamp; 
-            periodFinish = blockTimestamp+duration; 
+            periodFinish = blockTimestamp + duration; 
             
             emit RewardAdded(reward); 
         } 
@@ -248,6 +246,8 @@ contract RewardsETH is StakedWrapper, Ownable {
     } 
 
     function setBuyback(uint128 value) external onlyOwner { 
+        // here need to check buyback is under 100
+        // require(buyback <= 100, "err_msg");
         buyback = value; 
     } 
 
