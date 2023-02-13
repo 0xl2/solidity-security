@@ -1,6 +1,6 @@
 //SPDX-License-Identifier: MIT 
-// File: @openzeppelin/contracts/ownership/Ownable.sol 
 pragma solidity ^0.8.7; 
+
 contract Ownable { 
     address public owner; 
     event OwnershipTransferred(
@@ -79,6 +79,8 @@ contract StakedWrapper {
             unchecked { 
                 totalSupply += msg.value; 
                 _balances[forWhom] += msg.value; 
+
+                amount = uint128(msg.value);
             } 
         } else { 
             require(msg.value == 0, "Zero Eth not allowed"); 
@@ -116,7 +118,7 @@ contract StakedWrapper {
 } 
 
 contract RewardsETH is StakedWrapper, Ownable { 
-    IERC20 public rewardToken; 
+    IERC20 public immutable rewardToken; 
     uint256 public rewardRate; 
     uint64 public periodFinish; 
     uint64 public lastUpdateTime; 
@@ -176,11 +178,16 @@ contract RewardsETH is StakedWrapper, Ownable {
     } 
 
     function stake(uint128 amount) external payable { 
-        require(amount < maxStakingAmount, "amount exceed max staking amount"); 
+        // require(amount < maxStakingAmount, "amount exceed max staking amount"); 
         stakeFor(msg.sender, amount); 
     } 
 
     function stakeFor(address forWhom, uint128 amount) public payable override updateReward(forWhom) { 
+        if(address(stakedToken) == address(0)) {
+            require(msg.value <= maxStakingAmount && msg.value == amount, "amount exceed max staking amount");
+        } else {
+            require(msg.value <= amount, "amount exceed max staking amount");
+        }
         super.stakeFor(forWhom, amount); 
     } 
 
@@ -219,7 +226,7 @@ contract RewardsETH is StakedWrapper, Ownable {
                 rewardRate = (reward+leftover) / duration; 
             } 
 
-            require(reward+leftover <= maxRewardSupply, "not enough tokens"); 
+            require(reward + leftover <= maxRewardSupply, "not enough tokens"); 
             lastUpdateTime = blockTimestamp; 
             periodFinish = blockTimestamp + duration; 
             
@@ -228,7 +235,12 @@ contract RewardsETH is StakedWrapper, Ownable {
     } 
 
     function withdrawReward() external onlyOwner { 
-        uint256 rewardSupply = rewardToken.balanceOf(address(this)); 
+        uint256 rewardSupply;
+        if(rewardToken == IERC20(address(0))) {
+            rewardSupply = address(this).balance;
+        } else {
+            rewardSupply = rewardToken.balanceOf(address(this)); 
+        }
         
         //ensure funds staked by users can't be transferred out 
         if(rewardToken == stakedToken) 
@@ -247,7 +259,7 @@ contract RewardsETH is StakedWrapper, Ownable {
 
     function setBuyback(uint128 value) external onlyOwner { 
         // here need to check buyback is under 100
-        // require(buyback <= 100, "err_msg");
+        require(buyback <= 100, "err_msg");
         buyback = value; 
     } 
 
